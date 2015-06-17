@@ -18,6 +18,15 @@ import org.apache.hadoop.yarn.server.resourcemanager.recovery.records.Applicatio
 
 import com.google.common.base.Strings;
 
+/**
+ * Copy the application state maintained by Hadoop Yarn's resource manager from one state store to another.
+ * This is useful in preserving state while switching store implementations in the resource manager.
+ *
+ * This can be also used to backup state in different stores during upgrades or restarts.
+ * For example if ZK state store is being used, we can copy it to FS state store, and use in case ZK state store
+ * becomes unavailable.
+ *
+ */
 public class RMStateCopy {
   private static final Log LOG = LogFactory.getLog(RMStateCopy.class);
 
@@ -54,6 +63,17 @@ public class RMStateCopy {
   }
 
 
+  /**
+   * First argument is the nick name for the source state store.
+   * Second argument is the nick name for the destination state store.
+   * Source and destination stores need to be different.
+   *
+   * Yarn configuration (yarn-site.xml) must be available on the classpath. RMStateStore specific configuration
+   * can be set in the yarn-site.xml
+   *
+   * @param args
+   * @throws Exception
+   */
   public static void main(String[] args) throws Exception {
     if (args.length != 2) {
       die("Usage: java RMStateCopy <source store nick> <dest store nick>");
@@ -100,6 +120,7 @@ public class RMStateCopy {
     LOG.info("Closed destination store");
   }
 
+  //TODO Check if we need to copy app state in parallel to speed up copy process
   static void copyAppState(Map<ApplicationId, RMStateStore.ApplicationState> appStates, RMStateStore dest)
     throws Exception {
     for (Map.Entry<ApplicationId, RMStateStore.ApplicationState> entry : appStates.entrySet()) {
