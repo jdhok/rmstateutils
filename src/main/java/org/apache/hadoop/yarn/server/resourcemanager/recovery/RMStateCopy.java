@@ -15,6 +15,7 @@ import org.apache.hadoop.yarn.security.client.RMDelegationTokenIdentifier;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.records.AMRMTokenSecretManagerState;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.records.ApplicationAttemptStateData;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.records.ApplicationStateData;
+import org.apache.log4j.BasicConfigurator;
 
 import com.google.common.base.Strings;
 
@@ -45,9 +46,8 @@ public class RMStateCopy {
     conf.set(YarnConfiguration.RM_STORE, stateStoreClasses.get(storeNickName).getName());
 
     RMStateStore store = RMStateStoreFactory.getStore(conf);
-    store.serviceInit(conf);
-    store.serviceStart();
-
+    store.init(conf);
+    store.start();
     return store;
   }
 
@@ -74,7 +74,8 @@ public class RMStateCopy {
    * @param args
    * @throws Exception
    */
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
+    BasicConfigurator.configure();
     if (args.length != 2) {
       die("Usage: java RMStateCopy <source store nick> <dest store nick>");
     }
@@ -89,7 +90,16 @@ public class RMStateCopy {
       die("Source and destination stores are same: " + srcNick);
     }
 
-    YarnConfiguration yarnConf = new YarnConfiguration(new Configuration(false));
+    try {
+      copyStateStores(srcNick, destNick);
+    } catch (Exception e) {
+      LOG.error("Error copying stores from " + srcNick + " to " + destNick, e);
+      System.exit(1);
+    }
+  }
+
+  static void copyStateStores(String srcNick, String destNick) throws Exception {
+    YarnConfiguration yarnConf = new YarnConfiguration();
 
     RMStateStore src = getStateStore(srcNick, yarnConf);
     LOG.info("Initialized source store " + src);
@@ -163,7 +173,7 @@ public class RMStateCopy {
   }
 
   static void closeStore(RMStateStore store) throws Exception {
-    store.serviceStop();
+    store.stop();
   }
 
 }
