@@ -1,7 +1,9 @@
 package org.apache.hadoop.yarn.server.resourcemanager.recovery;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import org.apache.commons.logging.Log;
@@ -15,7 +17,7 @@ import org.apache.hadoop.yarn.security.client.RMDelegationTokenIdentifier;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.records.AMRMTokenSecretManagerState;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.records.ApplicationAttemptStateData;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.records.ApplicationStateData;
-import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.PropertyConfigurator;
 
 import com.google.common.base.Strings;
 
@@ -40,6 +42,11 @@ public class RMStateCopy {
     stateStoreClasses.put("mem", MemoryRMStateStore.class);
   }
 
+  static void configureLogging() throws IOException {
+    Properties props = new Properties();
+    props.load(RMStateCopy.class.getResourceAsStream("/log4j.properties"));
+    PropertyConfigurator.configure(props);
+  }
 
   static RMStateStore getStateStore(String storeNickName, YarnConfiguration yarnConf) throws Exception {
     Configuration conf = new Configuration(yarnConf);
@@ -75,7 +82,6 @@ public class RMStateCopy {
    * @throws Exception
    */
   public static void main(String[] args) {
-    BasicConfigurator.configure();
     if (args.length != 2) {
       die("Usage: java RMStateCopy <source store nick> <dest store nick>");
     }
@@ -91,12 +97,14 @@ public class RMStateCopy {
     }
 
     try {
+      configureLogging();
       copyStateStores(srcNick, destNick);
     } catch (Exception e) {
       LOG.error("Error copying stores from " + srcNick + " to " + destNick, e);
       System.exit(1);
     }
   }
+
 
   static void copyStateStores(String srcNick, String destNick) throws Exception {
     YarnConfiguration yarnConf = new YarnConfiguration();
@@ -133,6 +141,7 @@ public class RMStateCopy {
   //TODO Check if we need to copy app state in parallel to speed up copy process
   static void copyAppState(Map<ApplicationId, RMStateStore.ApplicationState> appStates, RMStateStore dest)
     throws Exception {
+    LOG.info("Copying " + appStates.size() + " applications");
     for (Map.Entry<ApplicationId, RMStateStore.ApplicationState> entry : appStates.entrySet()) {
       ApplicationId appID = entry.getKey();
       RMStateStore.ApplicationState appState = entry.getValue();
@@ -140,8 +149,11 @@ public class RMStateCopy {
       ApplicationStateData stateData = ApplicationStateData.newInstance(appState);
       dest.storeApplicationStateInternal(appID, stateData);
 
+      LOG.info("Copying application " + appID);
+
       for (int i = 0; i < appState.getAttemptCount(); i++) {
-        ApplicationAttemptId appAttemptId = ApplicationAttemptId.newInstance(appID, i);
+        ApplicationAttemptId appAttemptId = ApplicationAttemptId.newInstance(appID, i + 1);
+        LOG.info("Copying attempt " + appAttemptId);
         RMStateStore.ApplicationAttemptState attemptState = appState.getAttempt(appAttemptId);
         dest.storeApplicationAttemptStateInternal(appAttemptId,
           ApplicationAttemptStateData.newInstance(attemptState));
@@ -159,6 +171,8 @@ public class RMStateCopy {
 
     Set<DelegationKey> masterKeyState = dtState.getMasterKeyState();
     Map<RMDelegationTokenIdentifier, Long> tokenState = dtState.getTokenState();
+
+    LOG.info("Copying " + tokenState.size() + " RM delegation tokens");
 
     for (Map.Entry<RMDelegationTokenIdentifier, Long> tokenEntry : tokenState.entrySet()) {
       RMDelegationTokenIdentifier rmdtTokenId = tokenEntry.getKey();
