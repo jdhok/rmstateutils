@@ -144,19 +144,27 @@ public class RMStateCopy {
     LOG.info("Copying " + appStates.size() + " applications");
     for (Map.Entry<ApplicationId, RMStateStore.ApplicationState> entry : appStates.entrySet()) {
       ApplicationId appID = entry.getKey();
-      RMStateStore.ApplicationState appState = entry.getValue();
+      try {
+        RMStateStore.ApplicationState appState = entry.getValue();
 
-      ApplicationStateData stateData = ApplicationStateData.newInstance(appState);
-      dest.storeApplicationStateInternal(appID, stateData);
+        ApplicationStateData stateData = ApplicationStateData.newInstance(appState);
+        dest.storeApplicationStateInternal(appID, stateData);
 
-      LOG.info("Copying application " + appID);
+        LOG.info("Copying application " + appID);
 
-      for (int i = 0; i < appState.getAttemptCount(); i++) {
-        ApplicationAttemptId appAttemptId = ApplicationAttemptId.newInstance(appID, i + 1);
-        LOG.info("Copying attempt " + appAttemptId);
-        RMStateStore.ApplicationAttemptState attemptState = appState.getAttempt(appAttemptId);
-        dest.storeApplicationAttemptStateInternal(appAttemptId,
-          ApplicationAttemptStateData.newInstance(attemptState));
+        for (int i = 0; i < appState.getAttemptCount(); i++) {
+          ApplicationAttemptId appAttemptId = ApplicationAttemptId.newInstance(appID, i + 1);
+          try {
+            LOG.info("Copying attempt " + appAttemptId);
+            RMStateStore.ApplicationAttemptState attemptState = appState.getAttempt(appAttemptId);
+            dest.storeApplicationAttemptStateInternal(appAttemptId,
+              ApplicationAttemptStateData.newInstance(attemptState));
+          } catch (Exception e) {
+            LOG.error("Error copying attempt " + appAttemptId, e);
+          }
+        }
+      } catch (Exception e) {
+        LOG.error("Error copying application " + appID, e);
       }
     }
   }
@@ -176,9 +184,13 @@ public class RMStateCopy {
 
     for (Map.Entry<RMDelegationTokenIdentifier, Long> tokenEntry : tokenState.entrySet()) {
       RMDelegationTokenIdentifier rmdtTokenId = tokenEntry.getKey();
-      Long rmdtTokenRenewDate = tokenEntry.getValue();
-      int tokenSeqNo = rmdtTokenId.getSequenceNumber();
-      dest.storeRMDelegationTokenAndSequenceNumber(rmdtTokenId, rmdtTokenRenewDate, tokenSeqNo);
+      try {
+        Long rmdtTokenRenewDate = tokenEntry.getValue();
+        int tokenSeqNo = rmdtTokenId.getSequenceNumber();
+        dest.storeRMDelegationTokenAndSequenceNumber(rmdtTokenId, rmdtTokenRenewDate, tokenSeqNo);
+      } catch (Exception e) {
+        LOG.error("Error copying token " + rmdtTokenId, e);
+      }
     }
 
     for (DelegationKey delegationKey : masterKeyState) {
