@@ -33,13 +33,13 @@ import com.google.common.base.Strings;
 public class RMStateCopy {
   private static final Log LOG = LogFactory.getLog(RMStateCopy.class);
 
-  private static final Map<String, Class> stateStoreClasses = new HashMap<>();
+  private static final Map<String, Class> storeNickNames = new HashMap<>();
 
   static {
-    stateStoreClasses.put("fs", FileSystemRMStateStore.class);
-    stateStoreClasses.put("zk", ZKRMStateStore.class);
-    stateStoreClasses.put("null", NullRMStateStore.class);
-    stateStoreClasses.put("mem", MemoryRMStateStore.class);
+    storeNickNames.put("fs", FileSystemRMStateStore.class);
+    storeNickNames.put("zk", ZKRMStateStore.class);
+    storeNickNames.put("null", NullRMStateStore.class);
+    storeNickNames.put("mem", MemoryRMStateStore.class);
   }
 
   static void configureLogging() throws IOException {
@@ -50,7 +50,7 @@ public class RMStateCopy {
 
   static RMStateStore getStateStore(String storeNickName, YarnConfiguration yarnConf) throws Exception {
     Configuration conf = new Configuration(yarnConf);
-    conf.set(YarnConfiguration.RM_STORE, stateStoreClasses.get(storeNickName).getName());
+    conf.set(YarnConfiguration.RM_STORE, storeNickNames.get(storeNickName).getName());
 
     RMStateStore store = RMStateStoreFactory.getStore(conf);
     store.init(conf);
@@ -64,8 +64,8 @@ public class RMStateCopy {
   }
 
   static void checkNickName(String nick) {
-    if (Strings.isNullOrEmpty(nick) || !stateStoreClasses.containsKey(nick)) {
-      die("Invalid store nick name: '" + nick + "' Allowed values are " + stateStoreClasses.keySet().toString());
+    if (Strings.isNullOrEmpty(nick) || !storeNickNames.containsKey(nick)) {
+      die("Invalid store nick name: '" + nick + "' Allowed values are " + storeNickNames.keySet().toString());
     }
   }
 
